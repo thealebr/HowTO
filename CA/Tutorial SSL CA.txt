@@ -1,0 +1,96 @@
+Criar FQDN para hostname
+Utilizar IP Fixo
+Utilizar horário correto (uso NTP)
+
+#Configurar estrutura do openssl.cnf
+vim /usr/lib/ssl/openssl.cnf (path default)
+
+#Alterar
+[ CA_default ]                                                                                 
+                                                                                               
+dir             = /root/ca
+#Incluir
+
+[ alt_names ]
+DNS.1 = cb.lab
+DNS.2 = cb-protectionh.cb.lab
+DNS.3 = cb-protection.cb.lab
+
+
+
+[ v3_req ]
+
+# Extensions to add to a certificate request
+
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+subjectAltName = @alt_names
+
+[ v3_ca ]
+
+
+
+#Criando Estrutura CA 
+cd /root/CA/
+mkdir /root/CA
+cd /root/CA/
+mkdir newcerts certs crl private reques
+touch index.txt
+echo '1234' > serial
+touch index.txt
+echo '1234' > serial
+
+#Geração Certificado CA Root
+openssl genrsa -aes256 -out private/cakey.pem 4096
+
+#Geração chave CA
+openssl req -new -x509 -key /root/CA/private/cakey.pem -out cacert.pem -days 3650 -set_serial 0
+
+#Geração CRS + Chave Certificado
+cd CA/request/
+openssl req -out sslcert00.csr -newkey rsa:2048 -nodes -keyout private00.key -config /usr/lib/ssl/openssl.cnf
+
+#How to verify CSR for SAN?
+openssl req -noout -text -in sslcert00.csr | grep DNS
+
+#Sign Certificado 
+openssl ca -in sslcert00.csr -out sslcert00.pem -extensions v3_req -extfile /usr/lib/ssl/openssl.cnf
+
+#Criar Chain.pem
+cat /root/CA/private/cakey.pem /root/CA/cacert.pem > chain.pem
+
+#Chain
+openssl pkcs12 -export  -chain -out certificado00.pfx -in sslcert00.pem  -inkey private00.key -CAfile chain.pem
+
+
+
+#revoke
+openssl ca -config openssl.cnf -revoke newcerts/hello-world.pem
+
+
+
+Sources
+#Create a chain
+https://www.markbrilman.nl/2012/07/creating-a-pfx-file-with-chain/
+https://www.helviojunior.com.br/it/security/criando-arquivo-pkcs12-pfx-com-a-cadeia-de-certificacao/
+
+#Revoke Certificate
+https://stackoverflow.com/questions/9496698/how-to-revoke-an-openssl-certificate-when-you-dont-have-the-certificate
+
+
+#Subject Alt Name
+https://security.stackexchange.com/questions/111114/why-does-subjectaltname-not-turn-up-in-my-csr
+http://apetec.com/support/GenerateSAN-CSR.htm
+
+#How to verify CSR for SAN?
+https://geekflare.com/san-ssl-certificate/
+
+#Create CA
+https://networklessons.com/uncategorized/openssl-certification-authority-ca-ubuntu-server/?utm_source=youtube&utm_medium=social&utm_campaign=OpenSSL%20Certification%20Authority%20(CA)%20on%20Ubuntu%20Ser...
+https://www.youtube.com/watch?v=oCl0gzLPPMI
+
+
+#Secure CA (Concept)
+http://cubicspot.blogspot.com/2016/12/setting-up-your-own-root-certificate.html
+
+
